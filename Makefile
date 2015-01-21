@@ -1,9 +1,7 @@
-DEVICE     = atmega168
-CLOCK      = 8000000
-PROGRAMMER = -c usbtiny -p m168
+DEVICE     = attiny44
+CLOCK      = 1000000
+PROGRAMMER = -c usbtiny -p t44
 OBJECTS    = main.o
-FUSES      = -U lfuse:w:0xe2:m -U hfuse:w:0xdf:m -U efuse:w:0xf9:m
-
 
 AVRDUDE = avrdude $(PROGRAMMER) -p $(DEVICE)
 COMPILE = avr-gcc -Wall -Os -DF_CPU=$(CLOCK) -mmcu=$(DEVICE)
@@ -27,11 +25,8 @@ all:	main.hex
 flash:	all
 	$(AVRDUDE) -U flash:w:main.hex:i
 
-fuse:
-	$(AVRDUDE) $(FUSES)
-
 # Xcode uses the Makefile targets "", "clean" and "install"
-install: flash fuse
+install: flash
 
 # if you use a bootloader, change the command below appropriately:
 load: all

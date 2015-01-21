@@ -1,23 +1,31 @@
-// chameleon, breadboard test
-// based on AVR ATMEGA168
+// chameleon
+// based on AVR ATTINY44
 // build with avr-gcc
 //
-// Source code (c) 2007-2015 by Jeremy Stanley
+// Source code (c) 2015 by Jeremy Stanley
 // Licensed under GNU GPL v2 or later
 
 // inputs:
-// PC0 (input)  = teh button
-// PC1 (input)  = photoresistor
+// pin 13. PA0 (ADC0) = photoresistor
 
 // target illuminator:
-// PC3 (output) = red LED
-// PC4 (output) = green LED
-// PC5 (output) = blue LED
+// common-cathode RGB LED
+// pin 10. PA3 = red
+// pin  9. PA4 = green
+// pin  8. PA5 = blue
+#define ILLUMINATOR_PORT PORTA
+#define ILLUMINATOR_MASK 0b00111000
+#define ILLUMINATOR_BIT(index) (0b1000 << (index))
 
 // display:
-// PD3 (OC2B) = blue LED
-// PD5 (OC0B) = green LED
-// PD6 (OC0A) = red LED
+// common-cathode RGB LED
+// pin 7. PA6 (OC1A) = blue
+// pin 6. PA7 (OC0B) = green
+// pin 5. PB2 (OC0A) = red
+#define R_INTENSITY OCR0A
+#define G_INTENSITY OCR0B
+#define B_INTENSITY OCR1A
+
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
@@ -26,11 +34,8 @@
 
 void init_adc()
 {
-	// power on the ADC
-	PRR &= ~(1 << PRADC);
-	
 	// select AVCC reference, ADC1 source
-	ADMUX = (0 << REFS1) | (1 << REFS0) | (0 << ADLAR) | (1 << MUX0);
+	ADMUX = 0;
 	
 	// enable ADC and start conversions at 1/128 prescaler
 	ADCSRA = (1 << ADEN) | (1 << ADSC) | (1 << ADIE) | (1 << ADPS2) | (1 << ADPS1) | (1 << ADPS0);
@@ -40,30 +45,32 @@ volatile uint8_t illum = 0;
 
 void init_illum()
 {
-	PORTC |= (0b1000 << illum);
+	ILLUMINATOR_PORT |= ILLUMINATOR_BIT(illum);
 }
 
 void cycle_illum()
 {
-	PORTC &= ~(0b1000 << illum);
+	ILLUMINATOR_PORT &= ~ILLUMINATOR_MASK;
 	if (++illum == 3)
 		illum = 0;
-	PORTC |= (0b1000 << illum);
+	ILLUMINATOR_PORT |= ILLUMINATOR_BIT(illum);
 }
 
 void init_pwm()
 {
+	R_INTENSITY = 0;
+	G_INTENSITY = 0;
+	B_INTENSITY = 0;
+
 	// timer0
 	// select non-inverting fast PWM mode for red (0A) and green (0B)
-	OCR0A = 0;
-	OCR0B = 0;
 	TCCR0A = (1 << COM0A1) | (1 << COM0B1) | (1 << WGM01) | (1 << WGM00);
-	TCCR0B = (1 << CS02);	// 1/256 prescaler
+	TCCR0B = (1 << CS01);	// 1/8 prescaler
 	
-	// timer2
-	OCR2B = 0;
-	TCCR2A = (1 << COM2B1) | (1 << WGM01) | (1 << WGM00);
-	TCCR2B = (1 << CS22) | (1 << CS21);	// 1/256 prescaler
+	// timer1
+	// select non-inverting 8-bit fast PWM mode for blue (1A)
+	TCCR1A = (1 << COM1A1) | (1 << WGM10);
+	TCCR1B = (1 << WGM12) | (1 << CS11); // 1/8 prescaler
 }
 
 uint8_t clamp(int16_t val)
@@ -93,9 +100,9 @@ void update_pwm(uint16_t result)
 		sat[i] = clamp(d + rgb[i]);
 	}
 
-	OCR0A = sat[0];
-	OCR0B = sat[1];
-	OCR2B = sat[2];
+	R_INTENSITY = sat[0];
+	G_INTENSITY = sat[1];
+	B_INTENSITY = sat[2];
 }
 
 ISR(ADC_vect)
@@ -117,10 +124,10 @@ ISR(ADC_vect)
 int main(void)
 {
 	// Initialize I/O
-	DDRC  = 0b00111000;
-	PORTC = 0b00000011;	// red illuminator starts on
-	DDRD  = 0b01101000;
-	PORTD = 0b00000000;
+	DDRA  = 0b11111000;
+	PORTA = 0b00000000;
+	DDRB  = 0b00000100;
+	PORTB = 0b00000000;
     
 	init_illum();
 	init_adc();
