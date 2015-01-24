@@ -10,12 +10,12 @@
 
 // target illuminator:
 // common-cathode RGB LED
+// pin 12. PA1 = blue
+// pin 11. PA2 = green
 // pin 10. PA3 = red
-// pin  9. PA4 = green
-// pin  8. PA5 = blue
 #define ILLUMINATOR_PORT PORTA
-#define ILLUMINATOR_MASK 0b00111000
-#define ILLUMINATOR_BIT(index) (0b1000 << (index))
+#define ILLUMINATOR_MASK 0b00001110
+#define ILLUMINATOR_BIT(index) (0b1000 >> (index))
 
 // display:
 // common-cathode RGB LED
@@ -31,6 +31,7 @@
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 #include <avr/sleep.h>
+#include <util/delay.h>
 
 void init_adc()
 {
@@ -109,11 +110,11 @@ ISR(ADC_vect)
 {
 	// average a whole bunch of readings
 	static uint32_t accum = 0;
-	static uint16_t count = 0;
+	static uint8_t  count = 0;
 	
 	accum += ADC;
-	if (++count == 256) {
-		uint16_t result = accum >> 8;
+	if (++count == 128) {
+		uint16_t result = accum >> 7;
 		count = 0;
 		accum = 0;
 		update_pwm(result);
@@ -124,7 +125,7 @@ ISR(ADC_vect)
 int main(void)
 {
 	// Initialize I/O
-	DDRA  = 0b11111000;
+	DDRA  = 0b11001110;
 	PORTA = 0b00000000;
 	DDRB  = 0b00000100;
 	PORTB = 0b00000000;
